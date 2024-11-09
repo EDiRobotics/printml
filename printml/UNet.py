@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from printml.DeformDataset import HEIGHT, WIDTH
 
 TRAJ_DIM = 2
 IN_CHANNELS = 5
@@ -89,27 +90,22 @@ class UNet(nn.Module):
 class DeformationPredictor():
 
     def __init__(self, num_levels, head_dim, n_heads):
-        self.unet = UNet(IN_CHANNELS, OUT_CHANNELS, num_levels, head_dim, n_heads)
-        self.x_coords = 
-
-if __name__ == '__main__':
-    # Usage example
-    batch_size = 5
-    height = 256
-    width = 256
-    in_channels = 5
-    out_channels = 1
-    seq_length = 10  # Length of the trajectory sequence
-
-    # Generate random input data
-    img = torch.randn(batch_size, in_channels, height, width)
-    trajectory = torch.randn(batch_size, seq_length, 2)
-
-    # Initialize the UNet model
-    unet = UNet(in_channels=in_channels, out_channels=out_channels, num_levels=4)
-
-    # Forward pass
-    deformation_output = unet(img, trajectory)
-
-    # Print the shape of the output to verify
-    print("Output shape:", deformation_output.shape)
+        self.net = UNet(IN_CHANNELS, OUT_CHANNELS, num_levels, head_dim, n_heads)
+        self.x_coords = torch.linspace(0, 1, steps=WIDTH).unsqueeze(0).repeat(HEIGHT, 1)
+        self.y_coords = torch.linspace(0, 1, steps=HEIGHT).unsqueeze(1).repeat(1, WIDTH)
+    
+    def compute_loss(self, batch):
+        B = batch["temperature"].shape[0]
+        img = torch.stack(
+            (
+                batch["temperature"],
+                batch["altitude"],
+                batch["thickness"],
+                self.x_coords[None].repeat(B, 1, 1),
+                self.y_coords[None].repeat(B, 1, 1),
+            ), 
+            dim=1,
+        )
+        deformation = self.net(img, batch["trajectory"])
+        loss = F.l1_loss(deformation, batch["deformation"][:, None])
+        return loss

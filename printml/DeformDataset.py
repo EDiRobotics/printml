@@ -3,8 +3,8 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-HEIGHT = 100
-WIDTH = 100
+HEIGHT = 256
+WIDTH = 256
 
 class DeformDataset(Dataset):
 
