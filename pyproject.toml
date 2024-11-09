@@ -1,0 +1,12 @@
+[project]
+name = "Print-ML"
+version = "0.1"
+dependencies = [
+    "torch",
+    "torchvision",
+    "tqdm",
+    "h5py"
+]
+
+[tool.setuptools]
+packages = ["Print-ML"]
