@@ -1,3 +1,5 @@
 *.hdf5
 *.egg-info
 __pycache__
+wandb/
+Save/

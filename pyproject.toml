@@ -5,7 +5,9 @@ dependencies = [
     "torch",
     "torchvision",
     "tqdm",
-    "h5py"
+    "h5py",
+    "wandb",
+    "accelerate",
 ]
 
 [tool.setuptools]
