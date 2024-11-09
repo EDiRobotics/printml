@@ -2,7 +2,7 @@
 
 #### 安装: 
 ```
-git clone https://github.com/EDiRobotics/Print-ML
-cd Print-ML
+git clone https://github.com/EDiRobotics/printml
+cd printml
 pip install -e .
 ```
