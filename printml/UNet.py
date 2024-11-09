@@ -2,6 +2,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+TRAJ_DIM = 2
+IN_CHANNELS = 5
+OUT_CHANNELS = 1
+
 class Attention(nn.Module):
     def __init__(self, query_dim, context_dim, head_dim=64, n_heads=8, drop_p=0.1, causal=False):
         super().__init__()
@@ -28,7 +32,7 @@ class Attention(nn.Module):
         return self.proj_net(inner)
 
 class UNet(nn.Module):
-    def __init__(self, in_channels, out_channels, num_levels):
+    def __init__(self, in_channels, out_channels, num_levels, head_dim, n_heads):
         super(UNet, self).__init__()
         self.num_levels = num_levels
         self.in_channels = in_channels
@@ -39,8 +43,17 @@ class UNet(nn.Module):
         self.condition_projectors = nn.ModuleList()
 
         for i in range(num_levels):
-            self.downsamples.append(nn.Conv2d(in_channels, in_channels * 2, kernel_size=2, stride=2))
-            self.cross_attentions.append(Attention(query_dim=in_channels * 2, context_dim=2))
+            self.downsamples.append(
+                nn.Conv2d(in_channels, in_channels * 2, kernel_size=2, stride=2),
+            )
+            self.cross_attentions.append(
+                Attention(
+                    query_dim=in_channels * 2, 
+                    context_dim=TRAJ_DIM,
+                    head_dim=head_dim,
+                    n_heads=n_heads,
+                ),
+            )
             in_channels *= 2
 
         self.upsamples.append(nn.ConvTranspose2d(in_channels, in_channels // 2, kernel_size=2, stride=2))
@@ -72,6 +85,12 @@ class UNet(nn.Module):
         # Output convolution
         x = self.out_conv(x)
         return x
+
+class DeformationPredictor():
+
+    def __init__(self, num_levels, head_dim, n_heads):
+        self.unet = UNet(IN_CHANNELS, OUT_CHANNELS, num_levels, head_dim, n_heads)
+        self.x_coords = 
 
 if __name__ == '__main__':
     # Usage example

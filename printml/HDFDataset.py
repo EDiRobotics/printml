@@ -3,6 +3,9 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
+HEIGHT = 100
+WIDTH = 100
+
 class DeformDataset(Dataset):
 
     def __init__(self, hdf5_path):

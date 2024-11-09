@@ -1,5 +1,5 @@
 [project]
-name = "Print-ML"
+name = "printml"
 version = "0.1"
 dependencies = [
     "torch",
@@ -9,4 +9,4 @@ dependencies = [
 ]
 
 [tool.setuptools]
-packages = ["Print-ML"]
+packages = ["printml"]
