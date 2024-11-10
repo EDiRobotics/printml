@@ -15,10 +15,12 @@ accelerate config
 #### 运行
 1. 生成模拟数据集
 ```
+cd Datasets
 python GenerateFakeDataset.py
 ```
-3. 开始训练
+2. 开始训练
 ```
-accelerate launch Train.py
+cd Scripts
+accelerate launch TrainDeformPred.py
 ```
 
