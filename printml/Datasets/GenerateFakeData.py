@@ -11,7 +11,7 @@ A sample includes
 import numpy as np
 import h5py
 from tqdm import tqdm
-from printml.DeformDataset import HEIGHT, WIDTH
+from printml.Datasets.DeformDataset import HEIGHT, WIDTH
 
 if __name__ == '__main__':
     # Define the dimensions and number of samples
