@@ -8,8 +8,8 @@ from printml.Networks.UNet import UNet, IN_CHANNELS, OUT_CHANNELS
 
 class DeformationPredictor():
 
-    def __init__(self, num_levels, head_dim, n_heads, device):
-        self.net = UNet(IN_CHANNELS, OUT_CHANNELS, num_levels, head_dim, n_heads).to(device)
+    def __init__(self, num_levels, num_cross_attn_levels, head_dim, n_heads, device):
+        self.net = UNet(IN_CHANNELS, OUT_CHANNELS, num_levels, num_cross_attn_levels, head_dim, n_heads).to(device)
         self.x_coords = torch.linspace(0, 1, steps=WIDTH).unsqueeze(0).repeat(HEIGHT, 1).to(device)
         self.y_coords = torch.linspace(0, 1, steps=HEIGHT).unsqueeze(1).repeat(1, WIDTH).to(device)
         print("number of parameters: {:e}".format(

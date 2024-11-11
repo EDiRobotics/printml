@@ -17,12 +17,13 @@ if __name__ == '__main__':
     # Dataset
     file_name = 'fake_deform_data.hdf5'
     dataset_path = Path('/root/autodl-tmp/printml/printml') / file_name
-    bs_per_gpu = 64
+    bs_per_gpu = 128
     workers_per_gpu = 4
     cache_ratio = 2
 
     # Network
-    num_levels = 4
+    num_levels = 8
+    num_cross_attn_levels = 3
     head_dim = 64
     n_heads = 8
 
@@ -52,6 +53,7 @@ if __name__ == '__main__':
     )
     predictor = DeformationPredictor(
         num_levels=num_levels,
+        num_cross_attn_levels=num_cross_attn_levels,
         head_dim=head_dim,
         n_heads=n_heads,
         device=device,

@@ -32,56 +32,127 @@ class Attention(nn.Module):
         return self.proj_net(inner)
 
 class UNet(nn.Module):
-    def __init__(self, in_channels, out_channels, num_levels, head_dim, n_heads):
+    def __init__(self, in_channels, out_channels, num_levels, num_cross_attn_levels, head_dim, n_heads):
         super(UNet, self).__init__()
         self.num_levels = num_levels
+        self.num_cross_attn_levels = num_cross_attn_levels
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.downsamples = nn.ModuleList()
         self.upsamples = nn.ModuleList()
-        self.cross_attentions = nn.ModuleList()
-        self.condition_projectors = nn.ModuleList()
+        self.down_cross_attentions = nn.ModuleList()
+        self.up_cross_attentions = nn.ModuleList()
 
-        for i in range(num_levels):
+        self.in_conv = nn.Sequential(
+            nn.Conv2d(in_channels, in_channels * 2, kernel_size=3, stride=1, padding="same"),
+            nn.BatchNorm2d(in_channels * 2),
+            nn.ReLU(),
+            nn.Conv2d(in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding="same"),
+            nn.BatchNorm2d(in_channels * 2),
+            nn.ReLU(),
+        )
+        in_channels *= 2
+
+        for i in range(num_levels - 1):
             self.downsamples.append(
-                nn.Conv2d(in_channels, in_channels * 2, kernel_size=2, stride=2),
-            )
-            self.cross_attentions.append(
-                Attention(
-                    query_dim=in_channels * 2, 
-                    context_dim=TRAJ_DIM,
-                    head_dim=head_dim,
-                    n_heads=n_heads,
+                nn.Sequential(
+                    nn.MaxPool2d(2),
+                    nn.Conv2d(in_channels, in_channels * 2, kernel_size=3, stride=1, padding="same"),
+                    nn.BatchNorm2d(in_channels * 2),
+                    nn.ReLU(),
+                    nn.Conv2d(in_channels * 2, in_channels * 2, kernel_size=3, stride=1, padding="same"),
+                    nn.BatchNorm2d(in_channels * 2),
+                    nn.ReLU(),
                 ),
             )
+            if i > num_levels - num_cross_attn_levels - 1:
+                self.down_cross_attentions.append(
+                    Attention(
+                        query_dim=in_channels * 2, 
+                        context_dim=TRAJ_DIM,
+                        head_dim=head_dim,
+                        n_heads=n_heads,
+                    ),
+                )
             in_channels *= 2
+        
 
-        self.upsamples.append(nn.ConvTranspose2d(in_channels, in_channels // 2, kernel_size=2, stride=2))
-        in_channels //= 2
-        for i in range(num_levels - 2, -1, -1):
-            self.upsamples.append(nn.ConvTranspose2d(in_channels * 2, in_channels // 2, kernel_size=2, stride=2))
+        self.middle = nn.Sequential(
+            nn.Conv2d(in_channels, in_channels, kernel_size=1, stride=1),
+            nn.BatchNorm2d(in_channels),
+            nn.ReLU(),
+            nn.Conv2d(in_channels, in_channels, kernel_size=1, stride=1),
+            nn.BatchNorm2d(in_channels),
+            nn.ReLU(),
+        )
+
+        for i in range(num_levels - 1, 0, -1):
+            self.upsamples.append(
+                nn.Sequential(
+                    nn.ConvTranspose2d(in_channels * 2, in_channels // 2, kernel_size=2, stride=2),
+                    nn.BatchNorm2d(in_channels // 2),
+                    nn.ReLU(),
+                    nn.Conv2d(in_channels // 2, in_channels // 2, kernel_size=3, stride=1, padding="same"),
+                    nn.BatchNorm2d(in_channels // 2),
+                    nn.ReLU(),
+                    nn.Conv2d(in_channels // 2, in_channels // 2, kernel_size=3, stride=1, padding="same"),
+                    nn.BatchNorm2d(in_channels // 2),
+                    nn.ReLU(),
+                )
+            )
+            if i > num_levels - num_cross_attn_levels - 1:
+                self.up_cross_attentions.append(
+                    Attention(
+                        query_dim=in_channels // 2, 
+                        context_dim=TRAJ_DIM,
+                        head_dim=head_dim,
+                        n_heads=n_heads,
+                    ),
+                )
             in_channels //= 2
 
-        self.out_conv = nn.Conv2d(in_channels, out_channels, kernel_size=1)
-
+        self.out_conv = nn.Sequential(
+            nn.Conv2d(in_channels*2, in_channels, kernel_size=3, stride=1, padding="same"),
+            nn.BatchNorm2d(in_channels),
+            nn.ReLU(),
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding="same"),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(),
+        )
     def forward(self, x, cond):
         b, c, h, w = x.size()
         skips = []
 
+        x = self.in_conv(x)
+        skips.append(x)
+
         # Downsample and cross-attention
-        for i in range(self.num_levels):
+        for i in range(self.num_levels - self.num_cross_attn_levels):
+            x = self.downsamples[i](x)
+            skips.append(x)
+        
+        for i in range(self.num_levels - self.num_cross_attn_levels, self.num_levels - 1):
             x = self.downsamples[i](x)
             x_flat = x.flatten(2).permute(0, 2, 1)
-            x_flat = self.cross_attentions[i](x_flat, cond)
+            x_flat = self.down_cross_attentions[i - (self.num_levels - self.num_cross_attn_levels)](x_flat, cond)
             x = x_flat.permute(0, 2, 1).reshape(x.shape)
             skips.append(x)
+        
+        x = self.middle(x)
 
-        # Upsample and concatenate with skips
-        x = self.upsamples[0](x)
-        for i, skip in enumerate(reversed(skips[:-1])):
+        # Upsample and concatenate with skips and cross-attention
+        for i, skip in enumerate(reversed(skips[-self.num_cross_attn_levels:])):
             x = torch.cat([x, skip], dim=1)
-            x = self.upsamples[i+1](x)
+            x = self.upsamples[i](x)
+            x_flat = x.flatten(2).permute(0, 2, 1)
+            x_flat = self.up_cross_attentions[i](x_flat, cond)
+            x = x_flat.permute(0, 2, 1).reshape(x.shape)
+
+        for i, skip in enumerate(reversed(skips[1:-self.num_cross_attn_levels])):
+            x = torch.cat([x, skip], dim=1)
+            x = self.upsamples[i+self.num_cross_attn_levels](x)
 
         # Output convolution
+        x = torch.cat([x, skips[0]], dim=1)
         x = self.out_conv(x)
         return x
