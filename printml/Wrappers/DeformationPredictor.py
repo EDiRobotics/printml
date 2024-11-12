@@ -8,10 +8,9 @@ from printml.Networks.UNet import UNet, IN_CHANNELS, OUT_CHANNELS
 
 class DeformationPredictor():
 
-    def __init__(self, num_levels, num_cross_attn_levels, head_dim, n_heads, device):
-        self.net = UNet(IN_CHANNELS, OUT_CHANNELS, num_levels, num_cross_attn_levels, head_dim, n_heads).to(device)
-        self.x_coords = torch.linspace(0, 1, steps=WIDTH).unsqueeze(0).repeat(HEIGHT, 1).to(device)
-        self.y_coords = torch.linspace(0, 1, steps=HEIGHT).unsqueeze(1).repeat(1, WIDTH).to(device)
+    def __init__(self, num_levels, device):
+        self.net = UNet(IN_CHANNELS, OUT_CHANNELS, num_levels).to(device)
+        self.dummy_img = torch.zeros(1, HEIGHT, WIDTH, device=device)
         print("number of parameters: {:e}".format(
             sum(p.numel() for p in self.net.parameters()))
         )
@@ -47,17 +46,31 @@ class DeformationPredictor():
                     wandb.watch(self.net, log="all", log_freq=save_interval)
     
     def compute_loss(self, batch):
-        B = batch["temperature"].shape[0]
+        B, T, _ = batch["trajectory"].shape
+
+        # Fill in traj img and energy img
+        traj_img = self.dummy_img.clone().repeat(B, 1, 1)
+        energy_img = self.dummy_img.clone().repeat(B, 1, 1)
+
+        traj = batch["trajectory"].to(dtype=torch.int)
+        batch_indices = torch.arange(B).repeat_interleave(T)
+        y_indices = traj[:, :, 0].flatten()
+        x_indices = traj[:, :, 1].flatten()
+
+        traj_img[batch_indices, y_indices, x_indices] = 1
+        energy_img[batch_indices, y_indices, x_indices] = batch["energy"].flatten()
+
         img = torch.stack(
             (
                 batch["temperature"],
                 batch["altitude"],
                 batch["thickness"],
-                self.x_coords[None].repeat(B, 1, 1),
-                self.y_coords[None].repeat(B, 1, 1),
+                traj_img,
+                energy_img,
             ), 
             dim=1,
         )
-        deformation = self.net(img, batch["trajectory"])
+
+        deformation = self.net(img)
         loss = F.l1_loss(deformation, batch["deformation"][:, None])
         return loss

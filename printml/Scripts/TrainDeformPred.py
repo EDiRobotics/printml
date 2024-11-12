@@ -18,21 +18,18 @@ if __name__ == '__main__':
     file_name = 'fake_deform_data.hdf5'
     dataset_path = Path('/root/autodl-tmp/printml/printml') / file_name
     bs_per_gpu = 128
-    workers_per_gpu = 4
-    cache_ratio = 2
+    workers_per_gpu = 6
+    cache_ratio = 5
 
     # Network
-    num_levels = 8
-    num_cross_attn_levels = 3
-    head_dim = 64
-    n_heads = 8
+    num_levels = 6
 
     # Training
     num_training_epochs = 50
     save_interval = 5
     load_epoch_id = 0
     gradient_accumulation_steps = 1
-    lr_max = 1e-4
+    lr_max = 1e-3
     do_watch_parameters = False
     do_profile = False
 
@@ -53,9 +50,6 @@ if __name__ == '__main__':
     )
     predictor = DeformationPredictor(
         num_levels=num_levels,
-        num_cross_attn_levels=num_cross_attn_levels,
-        head_dim=head_dim,
-        n_heads=n_heads,
         device=device,
     )
     predictor.load_pretrained(acc, save_path, load_epoch_id)
@@ -63,7 +57,7 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(
         predictor.net.parameters(),
         lr=lr_max,
-        fused=True,
+        foreach=True,
     )
     predictor.net, optimizer, loader = acc.prepare(
         predictor.net, 
