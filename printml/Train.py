@@ -38,6 +38,8 @@ def train(
     for epoch in range(num_training_epochs):
         total_loss = 0
         batch, _ = prefetcher.next()
+        # Save figure in wandb
+        predictor.log_figure(acc, batch, epoch, save_path)
         while batch is not None:
             with acc.accumulate(predictor.net):
                 predictor.net.train()

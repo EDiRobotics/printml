@@ -3,6 +3,7 @@ import json
 import torch
 import torch.nn.functional as F
 import wandb
+import matplotlib.pyplot as plt
 from printml.Datasets.DeformDataset import HEIGHT, WIDTH
 from printml.Networks.UNet import UNet, IN_CHANNELS, OUT_CHANNELS
 
@@ -45,7 +46,7 @@ class DeformationPredictor():
                 if do_watch_parameters:
                     wandb.watch(self.net, log="all", log_freq=save_interval)
     
-    def compute_loss(self, batch):
+    def compute_loss(self, batch, output_img=False):
         B, T, _ = batch["trajectory"].shape
 
         # Fill in traj img and energy img
@@ -57,7 +58,7 @@ class DeformationPredictor():
         y_indices = traj[:, :, 0].flatten()
         x_indices = traj[:, :, 1].flatten()
 
-        traj_img[batch_indices, y_indices, x_indices] = 1
+        traj_img[batch_indices, y_indices, x_indices] = 100
         energy_img[batch_indices, y_indices, x_indices] = batch["energy"].flatten()
 
         img = torch.stack(
@@ -73,4 +74,53 @@ class DeformationPredictor():
 
         deformation = self.net(img)
         loss = F.l1_loss(deformation, batch["deformation"][:, None])
-        return loss
+
+        if output_img:
+            return {
+                "traj_img": traj_img,
+                "energy_img": energy_img,
+                "deformation": deformation,
+            }
+        else:
+            return loss
+
+    def log_figure(self, acc, batch, epoch, save_path):
+        with torch.no_grad():
+            out = self.compute_loss(batch, output_img=True)
+
+            fig, axs = plt.subplots(nrows=1, ncols=7, figsize=(9*7, 9*2))
+
+            axs[0].imshow(batch["temperature"][0].cpu().numpy(), cmap='hot')
+            axs[0].set_title('Temperature', fontsize=50)
+            axs[0].axis('off')
+
+            axs[1].imshow(batch["altitude"][0].cpu().numpy(), cmap='hot')
+            axs[1].set_title('Altitude', fontsize=50)
+            axs[1].axis('off')
+
+            axs[2].imshow(batch["thickness"][0].cpu().numpy(), cmap='hot')
+            axs[2].set_title('Thickness', fontsize=50)
+            axs[2].axis('off')
+
+            axs[3].imshow(batch["deformation"][0].cpu().numpy(), cmap='hot')
+            axs[3].set_title('Deformation', fontsize=50)
+            axs[3].axis('off')
+
+            axs[4].imshow(out["traj_img"][0].cpu().numpy(), cmap='hot')
+            axs[4].set_title('Trajectory', fontsize=50)
+            axs[4].axis('off')
+
+            axs[5].imshow(out["energy_img"][0].cpu().numpy(), cmap='hot')
+            axs[5].set_title('Energy', fontsize=50)
+            axs[5].axis('off')
+
+            axs[6].imshow(out["deformation"][0][0].cpu().numpy(), cmap='hot')
+            axs[6].set_title('pred_deformation', fontsize=50)
+            axs[6].axis('off')
+
+            plt.tight_layout()
+
+            wandb_tracker = acc.get_tracker("wandb")
+            wandb_tracker.log({f"vis": fig}, commit=False)
+            fig.savefig(save_path/f"vis_{epoch}.png")
+            plt.close(fig)

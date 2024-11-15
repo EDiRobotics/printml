@@ -16,7 +16,7 @@ if __name__ == '__main__':
 
     # Dataset
     file_name = 'fake_deform_data.hdf5'
-    dataset_path = Path('/root/autodl-tmp/printml/printml') / file_name
+    dataset_path = Path('/root/autodl-tmp/printml/printml/Dataset/') / file_name
     bs_per_gpu = 128
     workers_per_gpu = 6
     cache_ratio = 5
@@ -25,7 +25,7 @@ if __name__ == '__main__':
     num_levels = 6
 
     # Training
-    num_training_epochs = 50
+    num_training_epochs = 200
     save_interval = 5
     load_epoch_id = 0
     gradient_accumulation_steps = 1
@@ -46,6 +46,7 @@ if __name__ == '__main__':
         dataset, 
         batch_size=bs_per_gpu,
         num_workers=workers_per_gpu,
+        shuffle=True,
         prefetch_factor=cache_ratio,
     )
     predictor = DeformationPredictor(

@@ -16,9 +16,9 @@ from printml.Datasets.DeformDataset import HEIGHT, WIDTH
 
 if __name__ == '__main__':
     # Define the dimensions and number of samples
-    timestep = 10
+    timestep = 10000
     sample_num = 10000  # Number of samples
-    neighborhood_size = 30  # Size of the neighborhood to average around the path
+    neighborhood_size = 5  # Size of the neighborhood to average around the path
 
     # Create an HDF5 file
     with h5py.File('fake_deform_data.hdf5', 'w') as hdf_file:
@@ -36,15 +36,59 @@ if __name__ == '__main__':
             temperature = np.random.rand(HEIGHT, WIDTH).astype(np.float32)
             altitude = np.random.rand(HEIGHT, WIDTH).astype(np.float32)
             thickness = np.random.rand(HEIGHT, WIDTH).astype(np.float32)
-
-            # Generate a trajectory within the range of (HEIGHT, WIDTH) using float numbers
-            trajectory = np.stack([
-                np.random.randint(0, HEIGHT, size=timestep),
-                np.random.randint(0, WIDTH, size=timestep)
-            ], axis=-1).astype(np.int32)
-
-            # Generate energy
             energy = np.random.rand(timestep).astype(np.float32)
+
+            # 自动选择参数
+            start_point = np.array([np.random.randint(0, WIDTH), np.random.randint(0, HEIGHT)])  # 随机选择起始点
+            move_along_row = np.random.choice([True, False])  # 随机选择是沿行移动还是沿列移动
+            if move_along_row:
+                row_width = np.random.randint(1, WIDTH - start_point[0] + 1)  # 随机选择行宽
+                row_spacing = np.random.randint(1, HEIGHT - start_point[1] + 1)  # 随机选择行间距
+            else:
+                row_width = np.random.randint(1, HEIGHT - start_point[1] + 1)  # 随机选择列宽
+                row_spacing = np.random.randint(1, WIDTH - start_point[0] + 1)  # 随机选择列间距
+
+            # 初始化轨迹数组
+            trajectory = np.zeros((timestep, 2), dtype=np.int32)
+
+            # 设置当前点为起始点
+            current_point = start_point.copy()
+            trajectory[0] = current_point
+
+            # 生成轨迹
+            for t in range(1, timestep):
+                if move_along_row:
+                    # 沿行移动
+                    if t % (2 * row_width) < row_width:
+                        # 从左到右移动
+                        current_point[0] += 1
+                    else:
+                        # 从右到左移动
+                        current_point[0] -= 1
+                    # 每行走完一行后，随机选择上移或下移
+                    if t % (2 * row_width) == 0:
+                        move_direction = np.random.choice([-1, 1])  # 随机选择上移（-1）或下移（1）
+                        current_point[1] += move_direction * row_spacing
+                else:
+                    # 沿列移动
+                    if t % (2 * row_width) < row_width:
+                        # 从上到下移动
+                        current_point[1] += 1
+                    else:
+                        # 从下到上移动
+                        current_point[1] -= 1
+                    # 每行走完一列后，随机选择左移或右移
+                    if t % (2 * row_width) == 0:
+                        move_direction = np.random.choice([-1, 1])  # 随机选择左移（-1）或右移（1）
+                        current_point[0] += move_direction * row_spacing
+
+                # 确保点在定义的范围内
+                current_point = np.clip(current_point, [0, 0], [WIDTH - 1, HEIGHT - 1])
+                if current_point[0] == HEIGHT - 1 or current_point[0] == 0 or current_point[1] == WIDTH - 1 or current_point[1] == 0:
+                    energy[t] = 0
+
+                # 更新轨迹
+                trajectory[t] = current_point
 
             # Initialize deformation
             deformation = np.zeros((HEIGHT, WIDTH))

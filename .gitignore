@@ -3,3 +3,4 @@
 __pycache__
 wandb/
 Save/
+.ipynb_checkpoints/
