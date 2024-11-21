@@ -21,6 +21,11 @@ python GenerateFakeDataset.py
 2. 开始训练
 ```
 cd Scripts
-accelerate launch TrainDeformPred.py
+accelerate launch TrainDeformPred.py # 变形检测
+accelerate launch TrainSegment.py # 区域分割
 ```
+
+#### 损失曲线
+[变形检测](https://wandb.ai/lizh9785/PrintML/runs/7145xw6q)
+[区域分割](https://wandb.ai/lizh9785/PrintML/runs/jbimm1vy)
 
