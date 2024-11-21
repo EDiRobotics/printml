@@ -2,10 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-TRAJ_DIM = 128
-IN_CHANNELS = 5
-OUT_CHANNELS = 1
-
 class UNet(nn.Module):
     def __init__(self, in_channels, out_channels, num_levels):
         super(UNet, self).__init__()

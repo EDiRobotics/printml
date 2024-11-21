@@ -5,7 +5,7 @@ from accelerate import Accelerator
 from accelerate.utils import DistributedDataParallelKwargs
 from printml.Datasets.DeformDataset import DeformDataset
 from printml.Datasets.DataPrefetcher import DataPrefetcher
-from printml.Wrappers.DeformationPredictor import DeformationPredictor
+from printml.Wrappers.Segmenter import Segmenter
 from printml.Train import train
 
 if __name__ == '__main__':
@@ -49,7 +49,7 @@ if __name__ == '__main__':
         shuffle=True,
         prefetch_factor=cache_ratio,
     )
-    predictor = DeformationPredictor(
+    predictor = Segmenter(
         num_levels=num_levels,
         device=device,
     )

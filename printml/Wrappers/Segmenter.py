@@ -8,9 +8,9 @@ from printml.Datasets.DeformDataset import HEIGHT, WIDTH
 from printml.Networks.UNet import UNet
 
 IN_CHANNELS = 5
-OUT_CHANNELS = 1
+OUT_CHANNELS = 3 # 类别0: deformation <= -1, 类别1: -1 < deformation <= 0, 类别2: deformation > 0
 
-class DeformationPredictor():
+class Segmenter():
 
     def __init__(self, num_levels, device):
         self.net = UNet(IN_CHANNELS, OUT_CHANNELS, num_levels).to(device)
@@ -75,14 +75,20 @@ class DeformationPredictor():
             dim=1,
         )
 
-        deformation = self.net(img)
-        loss = F.l1_loss(deformation, batch["deformation"][:, None])
+        logits = self.net(img)
+        labels = torch.clamp(batch["deformation"], min=-1, max=0) + 1
+        labels = labels.long()
+
+        loss = F.cross_entropy(logits, labels)
 
         if output_img:
+            probs = F.softmax(logits, dim=1)
+            _, predicted_classes = torch.max(probs, 1)
             return {
                 "traj_img": traj_img,
                 "energy_img": energy_img,
-                "deformation": deformation,
+                "pred_class": predicted_classes,
+                "labels": labels,
             }
         else:
             return loss
@@ -105,8 +111,8 @@ class DeformationPredictor():
             axs[2].set_title('Thickness', fontsize=50)
             axs[2].axis('off')
 
-            axs[3].imshow(batch["deformation"][0].cpu().numpy(), cmap='hot')
-            axs[3].set_title('Deformation', fontsize=50)
+            axs[3].imshow(out["labels"][0].cpu().numpy(), cmap='hot')
+            axs[3].set_title('Label', fontsize=50)
             axs[3].axis('off')
 
             axs[4].imshow(out["traj_img"][0].cpu().numpy(), cmap='hot')
@@ -117,8 +123,8 @@ class DeformationPredictor():
             axs[5].set_title('Energy', fontsize=50)
             axs[5].axis('off')
 
-            axs[6].imshow(out["deformation"][0][0].cpu().numpy(), cmap='hot')
-            axs[6].set_title('pred_deformation', fontsize=50)
+            axs[6].imshow(out["pred_class"][0].cpu().numpy(), cmap='hot')
+            axs[6].set_title('pred_class', fontsize=50)
             axs[6].axis('off')
 
             plt.tight_layout()
